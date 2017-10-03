@@ -18,6 +18,9 @@ class MPC {
 
   std::vector<double> mpc_x_vals;
   std::vector<double> mpc_y_vals;
+
+  double delta_prev {0};
+  double a_prev {0};
 };
 
 #endif /* MPC_H */

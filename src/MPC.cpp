@@ -8,6 +8,7 @@ using CppAD::AD;
 // TODO: Set the timestep length and duration
 size_t N = 10;
 double dt = 0.1;
+int latency_states = 1; // 0.1 / dt
 
 // This value assumes the model presented in the classroom is used.
 //
@@ -37,10 +38,10 @@ double coeff_penalize_cte = 1.;
 double coeff_penalize_epsi = 1.;
 double coeff_penalize_v = 1.;
 
-double coeff_penalize_delta = 700;
-double coeff_penalize_a = 100;
+double coeff_penalize_delta = 200;
+double coeff_penalize_a = 1.;
 
-double coeff_deriv_delta = 1.;
+double coeff_deriv_delta = 500;
 double coeff_deriv_a = 1.;
 
 class FG_eval {
@@ -114,11 +115,6 @@ class FG_eval {
       // Only consider the actuation at time t.
       AD<double> delta0 = vars[delta_start + t - 1];
       AD<double> a0 = vars[a_start + t - 1];
-
-      if (t > 1) {   // use previous actuations (to account for latency)
-        a0 = vars[a_start + t - 2];
-        delta0 = vars[delta_start + t - 2];
-      }
 
       AD<double> f0 = coeffs[0] + coeffs[1] * x0 + coeffs[2] * CppAD::pow(x0, 2) + coeffs[3] * CppAD::pow(x0, 3);
       AD<double> psides0 = CppAD::atan(coeffs[1] + 2 * coeffs[2] * x0 + 3 * coeffs[3] * CppAD::pow(x0, 2));
@@ -195,10 +191,22 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
     vars_upperbound[i] = 0.436332;
   }
 
+  // Steering angle is not changed during latency
+  for (int i = delta_start; i < delta_start + latency_states; i++) {
+    vars_lowerbound[i] = delta_prev;
+    vars_upperbound[i] = delta_prev;
+  }
+
   // Acceleration/decceleration upper and lower limits.
   for (i = a_start; i < n_vars; i++) {
     vars_lowerbound[i] = -1.0;
     vars_upperbound[i] = 1.0;
+  }
+
+  // Acceleration/deceleration is not changed during latency 
+  for (int i = a_start; i < a_start + latency_states; i++) {
+    vars_lowerbound[i] = a_prev;
+    vars_upperbound[i] = a_prev;
   }
 
   // Lower and upper limits for the constraints
@@ -269,6 +277,9 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   // {...} is shorthand for creating a vector, so auto x1 = {1.0,2.0}
   // creates a 2 element double vector.
 
+  delta_prev = solution.x[delta_start + latency_states];
+  a_prev = solution.x[a_start + latency_states];
+
   for (int i = 1; i < N; i++) {
     mpc_x_vals[i-1] = solution.x[x_start + i];
     mpc_y_vals[i-1] = solution.x[y_start + i];
@@ -277,5 +288,5 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   return {solution.x[x_start + 1],   solution.x[y_start + 1],
           solution.x[psi_start + 1], solution.x[v_start + 1],
           solution.x[cte_start + 1], solution.x[epsi_start + 1],
-          solution.x[delta_start],   solution.x[a_start]};
+          solution.x[delta_start + latency_states],   solution.x[a_start + latency_states]};
 }

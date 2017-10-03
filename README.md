@@ -24,7 +24,8 @@ The model is implemented using the following equations:
 
 - **Timestep Length and Elapsed Duration (N & dt)**
 
-The Timestep Length and Elapsed Duration were chosen empirically. I use N=10 and dt=0.1 which allow to drive up to 40mph. This means that the optimizer is considering a one-second duration in which to determine a corrective trajectory. Adjusting either N or dt (even by small amounts) often produced erratic behavior. Other values tried include 20 / 0.05, 8 / 0.125.
+The Timestep Length and Elapsed Duration were chosen empirically. I use N=10 and dt=0.1 which allow to drive up to 60mph. This means that the optimizer is considering a one-second duration in which to determine a corrective trajectory.Other values tried include 10 / 0.05. Shorter prediction horizons (T = N*dt) lead to more responsive, but less accurate controllers while longer prediction horizons lead to smoother controllers. For a given T, shorter time steps dt (and larger N) imply more accurate controllers (finer resolution) but also require a larger NMPC problem to be solved, thus increasing computational time.
+
 
 - **Polynomial Fitting and MPC Preprocessing**
 
@@ -32,7 +33,7 @@ The waypoints are transformed from map space into car space, therefore simplifyi
 
 - **Model Predictive Control with Latency**
 
-In order to deal with the 100ms latency, the kinematic equations have been altered (lines 118-121 in MPC.cpp) so that the actuations are applied a timestep later (which is 100ms). I also penalize for change in steering (delta), and change in acceleration, which results in much more controlled cornering.
+Here, dt = latency = 100ms, meaning that in order to deal with latency, I simulate it for the first actuator value: instead of taking the solution index 0 from MPC, I take the next one (latency/dt = 1), while fixing the actuator values for previous indices by setting vars_upperbound and lowerbound with values from previous run (code lines 194-198 and 206-210 in MPC.cpp)
 
 ## Dependencies
 
